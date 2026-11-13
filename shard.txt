@@ -1,0 +1,59 @@
+mkdir data/config
+shard1,shard2
+
+Server 27019
+Shard 1 27018
+Shard 2 27020
+Router 27017
+
+mongod --configsvr --replSet configRS --port 27019 --dbpath C:\MongoSharding\config --bind_ip localhost
+mongosh --port 27019
+
+rs.initiate({
+  _id: "configRS",
+  configsvr: true,
+  members: [
+    {_id:0,host:"localhost:27019"}
+  ]
+})
+
+
+mongod --shardsvr --replSet shard1RS --port 27018 --dbpath C:\MongoSharding\shard1 --bind_ip localhost
+mongosh --port 27018
+rs.initiate({   _id: "shard1RS",   members: [ { _id: 0, host: "localhost:27018" } ] })
+
+mongod --shardsvr --replSet shard2RS --port 27019 --dbpath C:\MongoSharding\shard2 --bind_ip localhost
+mongosh --port 27020
+rs.initiate({   _id: "shard2RS",   members: [ { _id: 0, host: "localhost:27020" } ] })
+
+
+mongos --configdb configRS/localhost:27019 --port 27017 --bind_ip localhost
+mongosh --port 27017
+
+sh.addShard("shard1Repl/localhost:27018")
+sh.addShard("shard2Repl/localhost:27020")
+sh.enableSharding("UniversityDB") 
+use UniversityDB 
+db.createCollection("Students")
+
+sh.shardCollection(   "UniversityDB.Students",   { student_id: "hashed" } )
+
+db.Students.insertMany([  
+{ student_id: 101, name: "Arun", department: "CSE" },
+{ student_id: 102, name: "Ravi", department: "ECE" },
+{ student_id: 103, name: "Anu", department: "ISE" }, 
+{ student_id: 104, name: "Priya", department: "CSE" },
+{ student_id: 105, name: "Kiran", department: "ECE" },
+{ student_id: 106, name: "Meena", department: "ISE" },
+{ student_id: 107, name: "Rahul", department: "CSE" }, 
+{ student_id: 108, name: "Divya", department: "ECE" }, 
+{ student_id: 109, name: "Sneha", department: "ISE" } 
+])
+db.Students.find()
+db.Students.find({ student_id: 105 })
+
+sh.status()
+db.Students.getShardDistribution()
+db.Students.getIndexes()
+db.Students.find({ student_id: 105 }).explain("executionStats")
+db.Students.countDocuments()
